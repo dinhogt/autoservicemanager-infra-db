@@ -1,0 +1,6 @@
+bucket         = "autoservicemanager-tfstate-ACCOUNT_ID"
+key            = "db/homolog/terraform.tfstate"
+# prod: key = "db/prod/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "autoservicemanager-tflock"
+encrypt        = true

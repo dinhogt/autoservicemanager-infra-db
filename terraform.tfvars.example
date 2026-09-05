@@ -1,0 +1,6 @@
+aws_region   = "us-east-1"
+project_name = "autoservicemanager"
+environment  = "homolog"
+
+# Senha do RDS é gerada por random_password — não versionar segredos.
+# db_allowed_cidr_blocks = []  # default; break-glass only
