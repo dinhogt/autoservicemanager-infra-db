@@ -2,11 +2,25 @@
 
 Terraform do stack **dados** (Fase 3): VPC compartilhada, RDS MySQL 8, Secrets Manager e state remoto S3+DynamoDB (ADR-008).
 
-Este diretório vive no monorepo até a cisão do repo GitHub `autoservicemanager-infra-db`.
+Repositório standalone (pós-cisão). Docs canônicos de arquitetura ficam no [autoservicemanager-app](https://github.com/dinhogt/autoservicemanager-app).
 
-**Docs:** [RFC-002](../docs/architecture/rfc-002-mysql-rds.md) · [ADR-008](../docs/architecture/adr-008-terraform-remote-state.md) · [ER](../docs/architecture/er-diagram.md) · [runbook](../docs/runbook.md)
+**Docs:** [RFC-002](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/rfc-002-mysql-rds.md) · [ADR-008](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/adr-008-terraform-remote-state.md) · [ER](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/er-diagram.md) · [runbook](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/runbook.md)
 
-## Escopo
+## Escopo neste repo
+
+```mermaid
+flowchart TB
+  subgraph dbRepo [autoservicemanager-infra-db]
+    VPC[VPC + subnets + NAT]
+    RDS[(RDS MySQL 8)]
+    SM[Secrets Manager db]
+    State[S3 + DynamoDB state]
+  end
+  VPC --> RDS
+  RDS --> SM
+  State -.-> dbRepo
+  dbRepo -->|remote_state outputs| K8s[autoservicemanager-infra-k8s]
+```
 
 | Recurso | Detalhe |
 |---------|---------|
@@ -16,91 +30,44 @@ Este diretório vive no monorepo até a cisão do repo GitHub `autoservicemanage
 | Secrets Manager | `${project}-${env}/db` — JSON compatível com Lambda `DB_SECRET_ARN` |
 | State | `db/homolog/terraform.tfstate` \| `db/prod/terraform.tfstate` |
 
-**Por que VPC aqui?** Ordem de apply ADR-008 é `infra-db` → `infra-k8s`. O RDS precisa de subnets; o stack k8s consome `vpc_*` + `db_*` via `terraform_remote_state`.
-
-**State = tier-0:** o tfstate contém a senha RDS. Leitura do objeto S3 = posse da credencial. Bootstrap aplica bucket policy least-privilege.
+**Por que VPC aqui?** Ordem de apply ADR-008: `infra-db` → `infra-k8s`. O stack k8s consome `vpc_*` + `db_*` via `terraform_remote_state`.
 
 ## Contrato de outputs (ADR-008)
 
 | Output | Consumidor |
 |--------|------------|
-| `db_endpoint` | Lambda, app, ConfigMaps |
-| `db_port` | Security groups |
-| `db_sg_id` | Regras de ingress EKS/Lambda (SG→SG) |
-| `db_secret_arn` | IRSA / env Lambda e Job migrate |
-| `vpc_id`, `private_subnet_ids`, `public_subnet_ids`, `vpc_cidr` | Stack `infra-k8s` |
-
-**Nota:** após adicionar outputs (`db_sg_id`, `db_port`), re-aplique este stack para atualizar o state remoto antes do `infra-k8s`.
-
-Formato do secret (`db_secret_arn`):
-
-```json
-{
-  "host": "...",
-  "port": 3306,
-  "username": "app",
-  "password": "...",
-  "dbname": "autoservicemanager",
-  "engine": "mysql",
-  "DATABASE_URL": "mysql://app:...@host:3306/autoservicemanager"
-}
-```
+| `db_endpoint` / `db_port` / `db_sg_id` / `db_secret_arn` | Lambda, app, Security Groups |
+| `vpc_id`, `private_subnet_ids`, `public_subnet_ids`, `vpc_cidr` | [infra-k8s](https://github.com/dinhogt/autoservicemanager-infra-k8s) |
 
 ## Pré-requisitos
 
-- Terraform >= 1.5
-- AWS CLI autenticado
-- Bootstrap do state (uma vez por conta) com role OIDC/admin:
-
-```bash
-chmod +x scripts/bootstrap-state.sh
-STATE_ADMIN_ROLE_ARN=arn:aws:iam::ACCOUNT:role/github-oidc-infra-db \
-  ./scripts/bootstrap-state.sh us-east-1
-```
+- Terraform >= 1.5, AWS CLI
+- Bootstrap state (uma vez): `./scripts/bootstrap-state.sh`
 
 ## Apply local
 
 ```bash
 cp backend.hcl.example backend.hcl
-# edite ACCOUNT_ID e key (homolog|prod)
 cp terraform.tfvars.example terraform.tfvars
-
 terraform init -backend-config=backend.hcl
 TF_VAR_environment=homolog terraform plan
 TF_VAR_environment=homolog terraform apply
 ```
 
-Break-glass (não usar em CI): `TF_VAR_db_allowed_cidr_blocks='["10.0.0.0/16"]'`.
-
-Sem remote state (só validação):
-
-```bash
-terraform init -backend=false
-terraform validate
-```
+Só validação: `terraform init -backend=false && terraform validate`.
 
 ## CI/CD (OIDC)
 
-Workflow monorepo: [`.github/workflows/infra-db-ci-cd.yml`](../.github/workflows/infra-db-ci-cd.yml)
+Workflows: [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) + [`security-gate.yml`](.github/workflows/security-gate.yml).
 
 | Evento | Ação |
 |--------|------|
-| PR (`infra-db/**`) | `fmt` + `init -backend=false` + `validate` — **sem AWS / OIDC** |
-| Push `develop` | OIDC → `plan -out=tfplan` → `apply tfplan`; key `db/homolog/`; `TF_VAR_environment=homolog` |
-| Push `master` | Idem; key `db/prod/`; `TF_VAR_environment=prod` |
+| PR | `security-gate` → `fmt` + `validate` — **sem AWS** |
+| Push `develop` | OIDC → plan/apply; key `db/homolog/` |
+| Push `master` | OIDC → plan/apply; key `db/prod/` |
 
-Plan com state real **só pós-merge** (mesmo padrão de [`auth-lambda-ci-cd.yml`](../.github/workflows/auth-lambda-ci-cd.yml)).
-
-Secrets GitHub: `AWS_ROLE_ARN` (role OIDC com permissões RDS/VPC/Secrets + S3/DynamoDB do state — ADR-009). Variável opcional: `TF_STATE_BUCKET`.
+Secrets: `AWS_ROLE_ARN`. Var opcional: `TF_STATE_BUCKET`. Sem path filters de monorepo.
 
 ## Destroy
 
-```bash
-TF_VAR_environment=homolog terraform destroy
-```
-
-Ordem global: destruir **`infra-k8s` primeiro**, depois **`infra-db`**.
-
-## Próximo todo
-
-Concluído: [`infra-k8s/`](../infra-k8s/) — ver [docs/infrastructure/repo-infra-k8s.md](../docs/infrastructure/repo-infra-k8s.md). Seguinte no plano: `observability`.
+Ordem global: destruir **[infra-k8s](https://github.com/dinhogt/autoservicemanager-infra-k8s) primeiro**, depois este stack.
