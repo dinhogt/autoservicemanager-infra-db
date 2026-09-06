@@ -1,25 +1,29 @@
 # autoservicemanager-infra-db
 
-Terraform do stack **dados** (Fase 3): VPC compartilhada, RDS MySQL 8, Secrets Manager e state remoto S3+DynamoDB (ADR-008).
+## Propósito
 
-Repositório standalone (pós-cisão). Docs canônicos de arquitetura ficam no [autoservicemanager-app](https://github.com/dinhogt/autoservicemanager-app).
+Infraestrutura como código do **banco gerenciado** e da **VPC compartilhada** (Fase 3): RDS MySQL 8, Secrets Manager, state remoto S3+DynamoDB (ADR-008). Apply **antes** do stack k8s.
 
-**Docs:** [RFC-002](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/rfc-002-mysql-rds.md) · [ADR-008](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/adr-008-terraform-remote-state.md) · [ER](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/er-diagram.md) · [runbook](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/runbook.md)
+## Tecnologias
 
-## Escopo neste repo
+Terraform ≥ 1.5  · AWS VPC/RDS/Secrets Manager  · S3 + DynamoDB backend  · GitHub Actions OIDC
+
+**Docs canônicos (app):** [delivery-index](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/delivery-index.md) · [RFC-002](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/rfc-002-mysql-rds.md) · [ADR-008](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/adr-008-terraform-remote-state.md) · [ER](https://github.com/dinhogt/autoservicemanager-app/blob/develop/docs/architecture/er-diagram.md)
+
+## Escopo neste repo (diagrama)
 
 ```mermaid
 flowchart TB
   subgraph dbRepo [autoservicemanager-infra-db]
-    VPC[VPC + subnets + NAT]
+    VPC[VPC subnets NAT]
     RDS[(RDS MySQL 8)]
-    SM[Secrets Manager db]
-    State[S3 + DynamoDB state]
+    SM[Secrets Manager]
+    State[S3 DynamoDB state db/]
   end
   VPC --> RDS
   RDS --> SM
   State -.-> dbRepo
-  dbRepo -->|remote_state outputs| K8s[autoservicemanager-infra-k8s]
+  dbRepo -->|outputs remote_state| K8s[infra-k8s]
 ```
 
 | Recurso | Detalhe |
