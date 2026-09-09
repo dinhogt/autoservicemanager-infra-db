@@ -66,11 +66,11 @@ Workflows: [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml) + [`secu
 
 | Evento | Ação |
 |--------|------|
-| PR | `security-gate` → `fmt` + `validate` — **sem AWS** |
+| PR (só `.tf` / modules / workflows) | `security-gate` ∥ `fmt` + `validate` — **sem AWS** |
 | Push `develop` | OIDC → plan/apply; key `db/homolog/` |
-| Push `master` | OIDC → plan/apply; key `db/prod/` |
+| Push `master` | OIDC → plan/apply; key `db/prod/` (`skip_final_snapshot=false`) |
 
-Secrets: `AWS_ROLE_ARN`. Var opcional: `TF_STATE_BUCKET`. Sem path filters de monorepo.
+**Proteção:** `master` só via Pull Request; deploys automáticos em `develop`/`master`. Secrets: `AWS_ROLE_ARN`. Var opcional: `TF_STATE_BUCKET`. Cache de providers Terraform no CD.
 
 ## Destroy
 

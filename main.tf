@@ -40,7 +40,7 @@ module "rds" {
   instance_class      = var.db_instance_class
   allocated_storage   = var.db_allocated_storage
   engine_version      = var.db_engine_version
-  skip_final_snapshot = var.db_skip_final_snapshot
+  skip_final_snapshot = var.environment == "prod" ? false : var.db_skip_final_snapshot
   deletion_protection = var.environment == "prod"
   tags                = local.tags
 }
