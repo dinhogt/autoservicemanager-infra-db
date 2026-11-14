@@ -4,3 +4,10 @@ environment  = "homolog"
 
 # Senha do RDS é gerada por random_password — não versionar segredos.
 # db_allowed_cidr_blocks = []  # default; break-glass only
+
+# Fase 4: billing e execution usam tabelas independentes PAY_PER_REQUEST.
+# dynamodb_point_in_time_recovery = true
+# dynamodb_services = {
+#   billing   = { partition_key = "id" }
+#   execution = { partition_key = "id" }
+# }

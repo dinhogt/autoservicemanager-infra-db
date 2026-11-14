@@ -78,3 +78,31 @@ variable "db_allowed_cidr_blocks" {
   description = "Break-glass: CIDRs com ingress 3306. Default vazio — só SG→SG no infra-k8s."
   default     = []
 }
+
+variable "dynamodb_services" {
+  description = "Tabelas DynamoDB por serviço da Fase 4."
+  type = map(object({
+    partition_key = string
+    sort_key      = optional(string)
+  }))
+
+  default = {
+    billing = {
+      partition_key = "id"
+    }
+    execution = {
+      partition_key = "id"
+    }
+  }
+
+  validation {
+    condition     = alltrue([for service in ["billing", "execution"] : contains(keys(var.dynamodb_services), service)])
+    error_message = "dynamodb_services deve declarar ao menos billing e execution."
+  }
+}
+
+variable "dynamodb_point_in_time_recovery" {
+  type        = bool
+  description = "Habilita point-in-time recovery nas tabelas por serviço."
+  default     = true
+}

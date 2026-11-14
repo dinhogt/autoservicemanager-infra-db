@@ -46,3 +46,13 @@ output "private_subnet_ids" {
 output "public_subnet_ids" {
   value = module.vpc.public_subnet_ids
 }
+
+output "dynamodb_table_names" {
+  description = "Nomes das tabelas DynamoDB por serviço."
+  value       = { for service, table in aws_dynamodb_table.service : service => table.name }
+}
+
+output "dynamodb_table_arns" {
+  description = "ARNs das tabelas DynamoDB por serviço; consumidos pelo infra-k8s para IAM."
+  value       = { for service, table in aws_dynamodb_table.service : service => table.arn }
+}

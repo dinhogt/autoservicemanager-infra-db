@@ -2,7 +2,7 @@
 
 ## Propósito
 
-Infraestrutura como código do **banco gerenciado** e da **VPC compartilhada** (Fase 3): RDS MySQL 8, Secrets Manager, state remoto S3+DynamoDB (ADR-008). Apply **antes** do stack k8s.
+Infraestrutura como código do **banco gerenciado** e da **VPC compartilhada**: RDS MySQL 8, DynamoDB por serviço (Fase 4), Secrets Manager e state remoto S3+DynamoDB (ADR-008). Apply **antes** do stack k8s.
 
 ## Tecnologias
 
@@ -30,6 +30,7 @@ flowchart TB
 |---------|---------|
 | VPC | Subnets públicas/privadas + NAT único (custo acadêmico) |
 | RDS MySQL 8 | `db.t3.micro`, privado, storage criptografado |
+| DynamoDB billing/execution | Uma tabela por serviço, on-demand, criptografia, PITR e proteção contra exclusão em prod |
 | SG RDS | **Sem ingress por default**; EKS/Lambda só via regras SG→SG no `infra-k8s` |
 | Secrets Manager | `${project}-${env}/db` — JSON compatível com Lambda `DB_SECRET_ARN` |
 | State | `db/homolog/terraform.tfstate` \| `db/prod/terraform.tfstate` |
@@ -42,6 +43,7 @@ flowchart TB
 |--------|------------|
 | `db_endpoint` / `db_port` / `db_sg_id` / `db_secret_arn` | Lambda, app, Security Groups |
 | `vpc_id`, `private_subnet_ids`, `public_subnet_ids`, `vpc_cidr` | [infra-k8s](https://github.com/dinhogt/autoservicemanager-infra-k8s) |
+| `dynamodb_table_names` / `dynamodb_table_arns` | IRSA e configuração dos serviços billing/execution |
 
 ## Pré-requisitos
 
