@@ -6,8 +6,5 @@ environment  = "homolog"
 # db_allowed_cidr_blocks = []  # default; break-glass only
 
 # Fase 4: billing e execution usam tabelas independentes PAY_PER_REQUEST.
+# Defaults: billing PK/SK + GSI1(GSI1PK) + TTL expiresAt; execution pk/sk + TTL ttl.
 # dynamodb_point_in_time_recovery = true
-# dynamodb_services = {
-#   billing   = { partition_key = "id" }
-#   execution = { partition_key = "id" }
-# }

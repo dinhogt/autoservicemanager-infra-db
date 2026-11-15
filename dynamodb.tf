@@ -20,6 +20,31 @@ resource "aws_dynamodb_table" "service" {
     }
   }
 
+  dynamic "attribute" {
+    for_each = each.value.gsi == null ? [] : [each.value.gsi]
+    content {
+      name = attribute.value.hash_key
+      type = "S"
+    }
+  }
+
+  dynamic "global_secondary_index" {
+    for_each = each.value.gsi == null ? [] : [each.value.gsi]
+    content {
+      name            = global_secondary_index.value.name
+      hash_key        = global_secondary_index.value.hash_key
+      projection_type = "ALL"
+    }
+  }
+
+  dynamic "ttl" {
+    for_each = each.value.ttl_attribute == null ? [] : [each.value.ttl_attribute]
+    content {
+      attribute_name = ttl.value
+      enabled        = true
+    }
+  }
+
   point_in_time_recovery {
     enabled = var.dynamodb_point_in_time_recovery
   }

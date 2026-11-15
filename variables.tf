@@ -84,14 +84,27 @@ variable "dynamodb_services" {
   type = map(object({
     partition_key = string
     sort_key      = optional(string)
+    ttl_attribute = optional(string)
+    gsi = optional(object({
+      name     = string
+      hash_key = string
+    }))
   }))
 
   default = {
     billing = {
-      partition_key = "id"
+      partition_key = "PK"
+      sort_key      = "SK"
+      ttl_attribute = "expiresAt"
+      gsi = {
+        name     = "GSI1"
+        hash_key = "GSI1PK"
+      }
     }
     execution = {
-      partition_key = "id"
+      partition_key = "pk"
+      sort_key      = "sk"
+      ttl_attribute = "ttl"
     }
   }
 
