@@ -15,3 +15,6 @@ backend.hcl
 tfplan
 *.tfplan
 state-bucket-policy.json
+
+# specs locais do agente (não faz parte da entrega)
+spec-skills-lib/
